@@ -97,16 +97,18 @@ public class DragLinearLayout extends LinearLayout {
         private int startVisibility;
         private BitmapDrawable viewDrawable;
         private int position;
-        private int startTop;
-        private int height;
+        private int startHead;
+        private int thickness;
         private int totalDragOffset;
-        private int targetTopOffset;
+        private int targetHeadOffset;
         private ValueAnimator settleAnimation;
+        private int mOrientation;
 
         private boolean detecting;
         private boolean dragging;
 
-        public DragItem() {
+        public DragItem(int orientation) {
+            this.mOrientation = orientation;
             stopDetecting();
         }
 
@@ -115,10 +117,16 @@ public class DragLinearLayout extends LinearLayout {
             this.startVisibility = view.getVisibility();
             this.viewDrawable = getDragDrawable(view);
             this.position = position;
-            this.startTop = view.getTop();
-            this.height = view.getHeight();
+
+            if (mOrientation == LinearLayout.VERTICAL) {
+                this.startHead = view.getTop();
+                this.thickness = view.getHeight();
+            } else if (mOrientation == LinearLayout.HORIZONTAL) {
+                this.startHead = view.getLeft();
+                this.thickness = view.getWidth();
+            }
             this.totalDragOffset = 0;
-            this.targetTopOffset = 0;
+            this.targetHeadOffset = 0;
             this.settleAnimation = null;
 
             this.detecting = true;
@@ -131,11 +139,17 @@ public class DragLinearLayout extends LinearLayout {
 
         public void setTotalOffset(int offset) {
             totalDragOffset = offset;
-            updateTargetTop();
+            updateTargetHead();
         }
 
-        public void updateTargetTop() {
-            targetTopOffset = startTop - view.getTop() + totalDragOffset;
+        public void updateTargetHead() {
+            switch (mOrientation) {
+                case LinearLayout.VERTICAL:
+                    targetHeadOffset = startHead - view.getTop() + totalDragOffset;
+                    break;
+                case LinearLayout.HORIZONTAL:
+                    targetHeadOffset = startHead - view.getLeft() + totalDragOffset;
+            }
         }
 
         public void onDragStop() {
@@ -153,10 +167,10 @@ public class DragLinearLayout extends LinearLayout {
             startVisibility = -1;
             viewDrawable = null;
             position = -1;
-            startTop = -1;
-            height = -1;
+            startHead = -1;
+            thickness = -1;
             totalDragOffset = 0;
-            targetTopOffset = 0;
+            targetHeadOffset = 0;
             if (null != settleAnimation) settleAnimation.end();
             settleAnimation = null;
         }
@@ -175,10 +189,12 @@ public class DragLinearLayout extends LinearLayout {
     /**
      * The shadow to be drawn above the {@link #draggedItem}.
      */
+    // TODO(cmcneil): Generalize this.
     private final Drawable dragTopShadowDrawable;
     /**
      * The shadow to be drawn below the {@link #draggedItem}.
      */
+    // TODO(cmcneil): Generalize this
     private final Drawable dragBottomShadowDrawable;
     private final int dragShadowHeight;
 
@@ -186,6 +202,7 @@ public class DragLinearLayout extends LinearLayout {
      * See {@link #setContainerScrollView(android.widget.ScrollView)}.
      */
     private ScrollView containerScrollView;
+    // TODO(cmcneil): Generalize this
     private int scrollSensitiveAreaHeight;
     private static final int DEFAULT_SCROLL_SENSITIVE_AREA_HEIGHT_DP = 48;
     private static final int MAX_DRAG_SCROLL_SPEED = 16;
@@ -201,7 +218,7 @@ public class DragLinearLayout extends LinearLayout {
 
         draggableChildren = new SparseArray<>();
 
-        draggedItem = new DragItem();
+        draggedItem = new DragItem(getOrientation());
         ViewConfiguration vc = ViewConfiguration.get(context);
         slop = vc.getScaledTouchSlop();
 
@@ -360,8 +377,8 @@ public class DragLinearLayout extends LinearLayout {
      */
     private void onDragStop() {
         draggedItem.settleAnimation = ValueAnimator.ofFloat(draggedItem.totalDragOffset,
-                draggedItem.totalDragOffset - draggedItem.targetTopOffset)
-                .setDuration(getTranslateAnimationDuration(draggedItem.targetTopOffset));
+                draggedItem.totalDragOffset - draggedItem.targetHeadOffset)
+                .setDuration(getTranslateAnimationDuration(draggedItem.targetHeadOffset));
         draggedItem.settleAnimation.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
             @Override
             public void onAnimationUpdate(ValueAnimator animation) {
@@ -405,7 +422,7 @@ public class DragLinearLayout extends LinearLayout {
         draggedItem.setTotalOffset(offset);
         invalidate();
 
-        int currentTop = draggedItem.startTop + draggedItem.totalDragOffset;
+        int currentTop = draggedItem.startHead + draggedItem.totalDragOffset;
 
         handleContainerScroll(currentTop);
 
@@ -416,7 +433,7 @@ public class DragLinearLayout extends LinearLayout {
         View aboveView = getChildAt(abovePosition);
 
         final boolean isBelow = (belowView != null) &&
-                (currentTop + draggedItem.height > belowView.getTop() + belowView.getHeight() / 2);
+                (currentTop + draggedItem.thickness > belowView.getTop() + belowView.getHeight() / 2);
         final boolean isAbove = (aboveView != null) &&
                 (currentTop < aboveView.getTop() + aboveView.getHeight() / 2);
 
@@ -480,7 +497,7 @@ public class DragLinearLayout extends LinearLayout {
                 @Override
                 public boolean onPreDraw() {
                     observer.removeOnPreDrawListener(this);
-                    draggedItem.updateTargetTop();
+                    draggedItem.updateTargetHead();
 
                     // TODO test if still necessary..
                     // because draggedItem#view#getTop() is only up-to-date NOW
