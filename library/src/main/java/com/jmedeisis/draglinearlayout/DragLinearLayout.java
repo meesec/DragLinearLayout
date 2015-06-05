@@ -183,7 +183,7 @@ public class DragLinearLayout extends LinearLayout {
     private final int slop;
 
     private static final int INVALID_POINTER_ID = -1;
-    private int downY = -1;
+    private int downPos = -1;
     private int activePointerId = INVALID_POINTER_ID;
 
     /**
@@ -203,8 +203,9 @@ public class DragLinearLayout extends LinearLayout {
      */
     private ScrollView containerScrollView;
     // TODO(cmcneil): Generalize this
-    private int scrollSensitiveAreaHeight;
+    private int scrollSensitiveAreaThickness;
     private static final int DEFAULT_SCROLL_SENSITIVE_AREA_HEIGHT_DP = 48;
+    private static final int DEFAULT_SCROLL_SENSITIVE_AREA_WIDTH_DP = 48;
     private static final int MAX_DRAG_SCROLL_SPEED = 16;
 
     public DragLinearLayout(Context context) {
@@ -229,8 +230,16 @@ public class DragLinearLayout extends LinearLayout {
 
         TypedArray a = context.getTheme().obtainStyledAttributes(attrs, R.styleable.DragLinearLayout, 0, 0);
         try {
-            scrollSensitiveAreaHeight = a.getDimensionPixelSize(R.styleable.DragLinearLayout_scrollSensitiveHeight,
-                    (int) (DEFAULT_SCROLL_SENSITIVE_AREA_HEIGHT_DP * resources.getDisplayMetrics().density + 0.5f));
+            switch (getOrientation()) {
+                case LinearLayout.VERTICAL:
+                    scrollSensitiveAreaThickness = a.getDimensionPixelSize(R.styleable.DragLinearLayout_scrollSensitiveHeight,
+                            (int) (DEFAULT_SCROLL_SENSITIVE_AREA_HEIGHT_DP * resources.getDisplayMetrics().density + 0.5f));
+                    break;
+                case LinearLayout.HORIZONTAL:
+                    scrollSensitiveAreaThickness = a.getDimensionPixelSize(R.styleable.DragLinearLayout_scrollSensistiveWidth,
+                            (int) (DEFAULT_SCROLL_SENSITIVE_AREA_WIDTH_DP * resources.getDisplayMetrics().density + 0.5f));
+                    break;
+            }
         } finally {
             a.recycle();
         }
@@ -328,12 +337,27 @@ public class DragLinearLayout extends LinearLayout {
      */
     @SuppressWarnings("UnusedDeclaration")
     public void setScrollSensitiveHeight(int height) {
-        this.scrollSensitiveAreaHeight = height;
+        this.scrollSensitiveAreaThickness = height;
     }
 
     @SuppressWarnings("UnusedDeclaration")
     public int getScrollSensitiveHeight() {
-        return scrollSensitiveAreaHeight;
+        return scrollSensitiveAreaThickness;
+    }
+
+    /**
+     * Sets the width from right / left edge at which a container {@link android.widget.ScrollView},
+     * if one is registered via {@link #setContainerScrollView(android.widget.ScrollView)},
+     * is scrolled.
+     */
+    @SuppressWarnings("UnusedDeclaration")
+    public void setScrollSensitiveWidth(int width) {
+        this.scrollSensitiveAreaThickness = width;
+    }
+
+    @SuppressWarnings("UnusedDeclaration")
+    public int getScrollSensitiveWidth() {
+        return scrollSensitiveAreaThickness;
     }
 
     /**
@@ -422,9 +446,9 @@ public class DragLinearLayout extends LinearLayout {
         draggedItem.setTotalOffset(offset);
         invalidate();
 
-        int currentTop = draggedItem.startHead + draggedItem.totalDragOffset;
+        int currentHead = draggedItem.startHead + draggedItem.totalDragOffset;
 
-        handleContainerScroll(currentTop);
+        handleContainerScroll(currentHead);
 
         int belowPosition = nextDraggablePosition(draggedItem.position);
         int abovePosition = previousDraggablePosition(draggedItem.position);
@@ -432,10 +456,28 @@ public class DragLinearLayout extends LinearLayout {
         View belowView = getChildAt(belowPosition);
         View aboveView = getChildAt(abovePosition);
 
+        // TODO(cmcneil): Figure out more reasonable defaults.
+        int belowViewHead = 0;
+        int belowViewThickness = 0;
+        int aboveViewHead = 0;
+        int aboveViewThickness = 0;
+        switch (getOrientation()) {
+            case LinearLayout.VERTICAL:
+                belowViewHead = belowView.getTop();
+                belowViewThickness = belowView.getHeight();
+                break;
+            case LinearLayout.HORIZONTAL:
+                belowViewHead = belowView.getLeft();
+                belowViewThickness = belowView.getWidth();
+                break;
+            default:
+                // TODO(cmcneil): Flip out.
+        }
+
         final boolean isBelow = (belowView != null) &&
-                (currentTop + draggedItem.thickness > belowView.getTop() + belowView.getHeight() / 2);
+                (currentHead + draggedItem.thickness > belowViewHead + belowViewThickness / 2);
         final boolean isAbove = (aboveView != null) &&
-                (currentTop < aboveView.getTop() + aboveView.getHeight() / 2);
+                (currentHead < aboveViewHead + aboveViewThickness / 2);
 
         if (isBelow || isAbove) {
             final View switchView = isBelow ? belowView : aboveView;
@@ -466,6 +508,7 @@ public class DragLinearLayout extends LinearLayout {
             }
             draggedItem.position = switchPosition;
 
+            // TODO(cmcneil): Generalize this guy.
             final ViewTreeObserver switchViewObserver = switchView.getViewTreeObserver();
             switchViewObserver.addOnPreDrawListener(new OnPreDrawListener() {
                 @Override
@@ -529,32 +572,63 @@ public class DragLinearLayout extends LinearLayout {
 
     private Runnable dragUpdater;
 
-    private void handleContainerScroll(final int currentTop) {
+    // TODO(cmcneil): Generalize callers.
+    private void handleContainerScroll(final int currentHead) {
         if (null != containerScrollView) {
+            final int startScrollX = containerScrollView.getScrollX();
             final int startScrollY = containerScrollView.getScrollY();
-            final int absTop = getTop() - startScrollY + currentTop;
-            final int height = containerScrollView.getHeight();
+            final int absHead;
+            final int thickness;
+            switch (getOrientation()) {
+                case LinearLayout.VERTICAL:
+                    absHead = getTop() - startScrollY + currentHead;
+                    thickness = containerScrollView.getHeight();
+                    break;
+                case LinearLayout.HORIZONTAL:
+                    absHead = getLeft() - startScrollX + currentHead;
+                    thickness = containerScrollView.getWidth();
+                    break;
+                default:
+                    // TODO(cmcneil): Throw an error or something
+                    absHead = 0;
+                    thickness = 0;
+            }
 
             final int delta;
 
-            if (absTop < scrollSensitiveAreaHeight) {
-                delta = (int) (-MAX_DRAG_SCROLL_SPEED * smootherStep(scrollSensitiveAreaHeight, 0, absTop));
-            } else if (absTop > height - scrollSensitiveAreaHeight) {
-                delta = (int) (MAX_DRAG_SCROLL_SPEED * smootherStep(height - scrollSensitiveAreaHeight, height, absTop));
+            if (absHead < scrollSensitiveAreaThickness) {
+                delta = (int) (-MAX_DRAG_SCROLL_SPEED * smootherStep(scrollSensitiveAreaThickness, 0, absHead));
+            } else if (absHead > thickness - scrollSensitiveAreaThickness) {
+                delta = (int) (MAX_DRAG_SCROLL_SPEED * smootherStep(thickness - scrollSensitiveAreaThickness, thickness, absHead));
             } else {
                 delta = 0;
             }
 
             containerScrollView.removeCallbacks(dragUpdater);
-            containerScrollView.smoothScrollBy(0, delta);
-            dragUpdater = new Runnable() {
-                @Override
-                public void run() {
-                    if (draggedItem.dragging && startScrollY != containerScrollView.getScrollY()) {
-                        onDrag(draggedItem.totalDragOffset + delta);
-                    }
-                }
-            };
+            switch (getOrientation()) {
+                case LinearLayout.VERTICAL:
+                    containerScrollView.smoothScrollBy(0, delta);
+                    dragUpdater = new Runnable() {
+                        @Override
+                        public void run() {
+                            if (draggedItem.dragging && startScrollY != containerScrollView.getScrollY()) {
+                                onDrag(draggedItem.totalDragOffset + delta);
+                            }
+                        }
+                    };
+                    break;
+                case LinearLayout.HORIZONTAL:
+                    containerScrollView.smoothScrollBy(delta, 0);
+                    dragUpdater = new Runnable() {
+                        @Override
+                        public void run() {
+                            if (draggedItem.dragging && startScrollX != containerScrollView.getScrollX()) {
+                                onDrag(draggedItem.totalDragOffset + delta);
+                            }
+                        }
+                    };
+                    break;
+            }
             containerScrollView.post(dragUpdater);
         }
     }
@@ -624,7 +698,13 @@ public class DragLinearLayout extends LinearLayout {
         switch (MotionEventCompat.getActionMasked(event)) {
             case MotionEvent.ACTION_DOWN: {
                 if (draggedItem.detecting) return false; // an existing item is (likely) settling
-                downY = (int) MotionEventCompat.getY(event, 0);
+                switch (getOrientation()) {
+                    case LinearLayout.VERTICAL:
+                        downPos = (int) MotionEventCompat.getY(event, 0);
+                        break;
+                    case LinearLayout.HORIZONTAL:
+                        downPos = (int) MotionEventCompat.getX(event, 0);
+                }
                 activePointerId = MotionEventCompat.getPointerId(event, 0);
                 break;
             }
@@ -632,9 +712,20 @@ public class DragLinearLayout extends LinearLayout {
                 if (!draggedItem.detecting) return false;
                 if (INVALID_POINTER_ID == activePointerId) break;
                 final int pointerIndex = event.findPointerIndex(activePointerId);
-                final float y = MotionEventCompat.getY(event, pointerIndex);
-                final float dy = y - downY;
-                if (Math.abs(dy) > slop) {
+                boolean move = false;
+                switch (getOrientation()) {
+                    case LinearLayout.VERTICAL:
+                        final float y = MotionEventCompat.getY(event, pointerIndex);
+                        final float dy = y - downPos;
+                        move = Math.abs(dy) > slop;
+                        break;
+                    case LinearLayout.HORIZONTAL:
+                        final float x = MotionEventCompat.getX(event, pointerIndex);
+                        final float dx = x - downPos;
+                        move = Math.abs(dx) > slop;
+                }
+
+                if (move) {
                     startDrag();
                     return true;
                 }
@@ -672,10 +763,18 @@ public class DragLinearLayout extends LinearLayout {
                 if (INVALID_POINTER_ID == activePointerId) break;
 
                 int pointerIndex = event.findPointerIndex(activePointerId);
-                int lastEventY = (int) MotionEventCompat.getY(event, pointerIndex);
-                int deltaY = lastEventY - downY;
+                int lastEventPos = downPos;
+                switch (getOrientation()) {
+                    case LinearLayout.VERTICAL:
+                        lastEventPos = (int) MotionEventCompat.getY(event, pointerIndex);
+                        break;
+                    case LinearLayout.HORIZONTAL:
+                        lastEventPos = (int) MotionEventCompat.getX(event, pointerIndex);
+                        break;
+                }
+                final int delta = lastEventPos - downPos;
 
-                onDrag(deltaY);
+                onDrag(delta);
                 return true;
             }
             case MotionEvent.ACTION_POINTER_UP: {
@@ -701,7 +800,7 @@ public class DragLinearLayout extends LinearLayout {
     }
 
     private void onTouchEnd() {
-        downY = -1;
+        downPos = -1;
         activePointerId = INVALID_POINTER_ID;
     }
 
