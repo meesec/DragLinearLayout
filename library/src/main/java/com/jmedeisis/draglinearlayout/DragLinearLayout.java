@@ -463,12 +463,24 @@ public class DragLinearLayout extends LinearLayout {
         int aboveViewThickness = 0;
         switch (getOrientation()) {
             case LinearLayout.VERTICAL:
-                belowViewHead = belowView.getTop();
-                belowViewThickness = belowView.getHeight();
+                if (belowView != null) {
+                    belowViewHead = belowView.getTop();
+                    belowViewThickness = belowView.getHeight();
+                }
+                if (aboveView != null) {
+                    aboveViewHead = aboveView.getTop();
+                    aboveViewThickness = aboveView.getHeight();
+                }
                 break;
             case LinearLayout.HORIZONTAL:
-                belowViewHead = belowView.getLeft();
-                belowViewThickness = belowView.getWidth();
+                if (belowView != null) {
+                    belowViewHead = belowView.getLeft();
+                    belowViewThickness = belowView.getWidth();
+                }
+                if (aboveView != null) {
+                    aboveViewHead = aboveView.getLeft();
+                    aboveViewThickness = aboveView.getWidth();
+                }
                 break;
             default:
                 // TODO(cmcneil): Flip out.
@@ -487,7 +499,18 @@ public class DragLinearLayout extends LinearLayout {
             final int switchPosition = isBelow ? belowPosition : abovePosition;
 
             draggableChildren.get(switchPosition).cancelExistingAnimation();
-            final float switchViewStartY = switchView.getY();
+            // TODO(cmcneil): Determine more reasonable default. Pos means something different.
+            //  use pix or something instead.
+            float startPos = 0;
+            switch (getOrientation()) {
+                case LinearLayout.VERTICAL:
+                    startPos = switchView.getY();
+                    break;
+                case LinearLayout.HORIZONTAL:
+                    startPos = switchView.getX();
+                    break;
+            }
+            final float switchViewStartPos = startPos;
 
             if (null != swapListener) {
                 swapListener.onSwap(draggedItem.view, draggedItem.position, switchView, switchPosition);
@@ -508,16 +531,27 @@ public class DragLinearLayout extends LinearLayout {
             }
             draggedItem.position = switchPosition;
 
-            // TODO(cmcneil): Generalize this guy.
             final ViewTreeObserver switchViewObserver = switchView.getViewTreeObserver();
             switchViewObserver.addOnPreDrawListener(new OnPreDrawListener() {
                 @Override
                 public boolean onPreDraw() {
                     switchViewObserver.removeOnPreDrawListener(this);
 
-                    final ObjectAnimator switchAnimator = ObjectAnimator.ofFloat(switchView, "y",
-                            switchViewStartY, switchView.getTop())
-                            .setDuration(getTranslateAnimationDuration(switchView.getTop() - switchViewStartY));
+                    float currentPos = switchViewStartPos;
+                    String dimension = "y";
+                    switch (getOrientation()) {
+                        case LinearLayout.VERTICAL:
+                            currentPos = switchView.getTop();
+                            dimension = "y";
+                            break;
+                        case LinearLayout.HORIZONTAL:
+                            currentPos = switchView.getLeft();
+                            dimension = "x";
+                            break;
+                    }
+                    final ObjectAnimator switchAnimator = ObjectAnimator.ofFloat(switchView,
+                            dimension, switchViewStartPos, currentPos)
+                            .setDuration(getTranslateAnimationDuration(currentPos - switchViewStartPos));
                     switchAnimator.addListener(new AnimatorListenerAdapter() {
                         @Override
                         public void onAnimationStart(Animator animation) {
