@@ -23,6 +23,7 @@ import android.view.View;
 import android.view.ViewConfiguration;
 import android.view.ViewTreeObserver;
 import android.view.ViewTreeObserver.OnPreDrawListener;
+import android.widget.HorizontalScrollView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 
@@ -199,10 +200,9 @@ public class DragLinearLayout extends LinearLayout {
     private final int dragShadowHeight;
 
     /**
-     * See {@link #setContainerScrollView(android.widget.ScrollView)}.
+     * See {@link #setContainerScrollView(Object)}.
      */
-    private ScrollView containerScrollView;
-    // TODO(cmcneil): Generalize this
+    private ScrollableView containerScrollView;
     private int scrollSensitiveAreaThickness;
     private static final int DEFAULT_SCROLL_SENSITIVE_AREA_HEIGHT_DP = 48;
     private static final int DEFAULT_SCROLL_SENSITIVE_AREA_WIDTH_DP = 48;
@@ -215,7 +215,7 @@ public class DragLinearLayout extends LinearLayout {
     public DragLinearLayout(Context context, AttributeSet attrs) {
         super(context, attrs);
 
-        setOrientation(LinearLayout.VERTICAL);
+//        setOrientation(LinearLayout.VERTICAL);
 
         draggableChildren = new SparseArray<>();
 
@@ -250,9 +250,9 @@ public class DragLinearLayout extends LinearLayout {
     @Override
     public void setOrientation(int orientation) {
         // enforce VERTICAL orientation; remove if HORIZONTAL support is ever added
-        if (LinearLayout.HORIZONTAL == orientation) {
-            throw new IllegalArgumentException("DragLinearLayout must be VERTICAL.");
-        }
+//        if (LinearLayout.HORIZONTAL == orientation) {
+//            throw new IllegalArgumentException("DragLinearLayout must be VERTICAL.");
+//        }
         super.setOrientation(orientation);
     }
 
@@ -326,13 +326,21 @@ public class DragLinearLayout extends LinearLayout {
      * If this layout is within a {@link android.widget.ScrollView}, register it here so that it
      * can be scrolled during item drags.
      */
-    public void setContainerScrollView(ScrollView scrollView) {
-        this.containerScrollView = scrollView;
+//    public void setContainerScrollView(ScrollView scrollView) {
+//        this.containerScrollView = scrollView;
+//    }
+//
+//    public void setContainerScrollView(HorizontalScrollView scrollView) {
+//        this.horizontalContainerScrollView = scrollView;
+//    }
+
+    public void setContainerScrollView(Object scrollView) {
+        this.containerScrollView = DuckType.coerce(scrollView).to(ScrollableView.class);
     }
 
     /**
      * Sets the height from upper / lower edge at which a container {@link android.widget.ScrollView},
-     * if one is registered via {@link #setContainerScrollView(android.widget.ScrollView)},
+     * if one is registered via {@link #setContainerScrollView(Object)},
      * is scrolled.
      */
     @SuppressWarnings("UnusedDeclaration")
@@ -347,7 +355,7 @@ public class DragLinearLayout extends LinearLayout {
 
     /**
      * Sets the width from right / left edge at which a container {@link android.widget.ScrollView},
-     * if one is registered via {@link #setContainerScrollView(android.widget.ScrollView)},
+     * if one is registered via {@link #setContainerScrollView(Object)},
      * is scrolled.
      */
     @SuppressWarnings("UnusedDeclaration")
@@ -681,7 +689,14 @@ public class DragLinearLayout extends LinearLayout {
 
         if (draggedItem.detecting && (draggedItem.dragging || draggedItem.settling())) {
             canvas.save();
-            canvas.translate(0, draggedItem.totalDragOffset);
+            switch (getOrientation()) {
+                case LinearLayout.VERTICAL:
+                    canvas.translate(0, draggedItem.totalDragOffset);
+                    break;
+                case LinearLayout.HORIZONTAL:
+                    canvas.translate(draggedItem.totalDragOffset, 0);
+                    break;
+            }
             draggedItem.viewDrawable.draw(canvas);
 
             final int left = draggedItem.viewDrawable.getBounds().left;
