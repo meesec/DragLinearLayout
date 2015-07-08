@@ -200,9 +200,9 @@ public class DragLinearLayout extends LinearLayout {
     private final int dragShadowHeight;
 
     /**
-     * See {@link #setContainerScrollView(Object)}.
+     * See {@link #setContainerScrollView(View)}.
      */
-    private ScrollableView containerScrollView;
+    private View containerScrollView;
     private int scrollSensitiveAreaThickness;
     private static final int DEFAULT_SCROLL_SENSITIVE_AREA_HEIGHT_DP = 48;
     private static final int DEFAULT_SCROLL_SENSITIVE_AREA_WIDTH_DP = 48;
@@ -334,13 +334,13 @@ public class DragLinearLayout extends LinearLayout {
 //        this.horizontalContainerScrollView = scrollView;
 //    }
 
-    public void setContainerScrollView(Object scrollView) {
-        this.containerScrollView = DuckType.coerce(scrollView).to(ScrollableView.class);
+    public void setContainerScrollView(View scrollView) {
+        this.containerScrollView = scrollView;
     }
 
     /**
      * Sets the height from upper / lower edge at which a container {@link android.widget.ScrollView},
-     * if one is registered via {@link #setContainerScrollView(Object)},
+     * if one is registered via {@link #setContainerScrollView(View)},
      * is scrolled.
      */
     @SuppressWarnings("UnusedDeclaration")
@@ -355,7 +355,7 @@ public class DragLinearLayout extends LinearLayout {
 
     /**
      * Sets the width from right / left edge at which a container {@link android.widget.ScrollView},
-     * if one is registered via {@link #setContainerScrollView(Object)},
+     * if one is registered via {@link #setContainerScrollView(View)},
      * is scrolled.
      */
     @SuppressWarnings("UnusedDeclaration")
@@ -649,7 +649,7 @@ public class DragLinearLayout extends LinearLayout {
             containerScrollView.removeCallbacks(dragUpdater);
             switch (getOrientation()) {
                 case LinearLayout.VERTICAL:
-                    containerScrollView.smoothScrollBy(0, delta);
+                    containerScrollView.scrollBy(0, delta);
                     dragUpdater = new Runnable() {
                         @Override
                         public void run() {
@@ -660,7 +660,7 @@ public class DragLinearLayout extends LinearLayout {
                     };
                     break;
                 case LinearLayout.HORIZONTAL:
-                    containerScrollView.smoothScrollBy(delta, 0);
+                    containerScrollView.scrollBy(delta, 0);
                     dragUpdater = new Runnable() {
                         @Override
                         public void run() {
