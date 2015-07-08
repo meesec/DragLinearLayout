@@ -12,7 +12,7 @@
     <string name="default_icon_description">Icon.</string>
     <string name="note_add_prompt">Add new note</string>
     <string name="note_complete_prompt">Write note</string>
-    <string name="action_view_note_demo">View DragLinearLayout inside ScrollView demo</string>
+    <string name="action_view_note_demo">View Drag Linear Layout inside Scroll View demo</string>
     <string name="demo_image_content_description">Demo image</string>
 
     <string-array name="notes">

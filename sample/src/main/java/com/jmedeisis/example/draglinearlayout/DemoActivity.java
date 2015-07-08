@@ -16,7 +16,7 @@ public class DemoActivity extends AppCompatActivity {
 
         DragLinearLayout dragLinearLayout = (DragLinearLayout) findViewById(R.id.container);
         // set all children draggable except the first (the header)
-        for(int i = 1; i < dragLinearLayout.getChildCount(); i++){
+        for(int i = 0; i < dragLinearLayout.getChildCount(); i++){
             View child = dragLinearLayout.getChildAt(i);
             dragLinearLayout.setViewDraggable(child, child); // the child is its own drag handle
         }
