@@ -23,9 +23,7 @@ import android.view.View;
 import android.view.ViewConfiguration;
 import android.view.ViewTreeObserver;
 import android.view.ViewTreeObserver.OnPreDrawListener;
-import android.widget.HorizontalScrollView;
 import android.widget.LinearLayout;
-import android.widget.ScrollView;
 
 /**
  * A LinearLayout that supports children Views that can be dragged and swapped around.
@@ -215,8 +213,6 @@ public class DragLinearLayout extends LinearLayout {
     public DragLinearLayout(Context context, AttributeSet attrs) {
         super(context, attrs);
 
-//        setOrientation(LinearLayout.VERTICAL);
-
         draggableChildren = new SparseArray<>();
 
         draggedItem = new DragItem(getOrientation());
@@ -245,15 +241,6 @@ public class DragLinearLayout extends LinearLayout {
         }
 
         nominalDistanceScaled = (int) (NOMINAL_DISTANCE * resources.getDisplayMetrics().density + 0.5f);
-    }
-
-    @Override
-    public void setOrientation(int orientation) {
-        // enforce VERTICAL orientation; remove if HORIZONTAL support is ever added
-//        if (LinearLayout.HORIZONTAL == orientation) {
-//            throw new IllegalArgumentException("DragLinearLayout must be VERTICAL.");
-//        }
-        super.setOrientation(orientation);
     }
 
     /**
@@ -326,14 +313,6 @@ public class DragLinearLayout extends LinearLayout {
      * If this layout is within a {@link android.widget.ScrollView}, register it here so that it
      * can be scrolled during item drags.
      */
-//    public void setContainerScrollView(ScrollView scrollView) {
-//        this.containerScrollView = scrollView;
-//    }
-//
-//    public void setContainerScrollView(HorizontalScrollView scrollView) {
-//        this.horizontalContainerScrollView = scrollView;
-//    }
-
     public void setContainerScrollView(View scrollView) {
         this.containerScrollView = scrollView;
     }
