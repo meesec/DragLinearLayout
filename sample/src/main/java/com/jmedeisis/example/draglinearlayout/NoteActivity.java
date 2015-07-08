@@ -52,6 +52,7 @@ public class NoteActivity extends AppCompatActivity {
                                 secondIndex, Toast.LENGTH_SHORT).show();
             }
         });
+        noteContainer.setOrthogonalDragOffset(8);
 
         noteCount = defaultNotes.length;
         addNewBlankNote(noteCount, false);

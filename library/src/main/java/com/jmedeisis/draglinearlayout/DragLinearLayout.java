@@ -42,7 +42,10 @@ public class DragLinearLayout extends LinearLayout {
     private static final long MIN_SWITCH_DURATION = NOMINAL_SWITCH_DURATION;
     private static final long MAX_SWITCH_DURATION = NOMINAL_SWITCH_DURATION * 2;
     private static final float NOMINAL_DISTANCE = 20;
+    private static final int DEFAULT_ORTHOGONAL_DRAG_OFFSET = 0;
     private final float nominalDistanceScaled;
+
+    private int orthogonalDragOffsetScaled;
 
     /**
      * Use with {@link com.jmedeisis.draglinearlayout.DragLinearLayout#setOnViewSwapListener(com.jmedeisis.draglinearlayout.DragLinearLayout.OnViewSwapListener)}
@@ -100,6 +103,9 @@ public class DragLinearLayout extends LinearLayout {
         private int thickness;
         private int totalDragOffset;
         private int targetHeadOffset;
+        private int orthogonalOffset;
+        private ValueAnimator orthogonalDragStartAnimation;
+        private ValueAnimator orthogonalDragSettleAnimation;
         private ValueAnimator settleAnimation;
         private int mOrientation;
 
@@ -126,6 +132,7 @@ public class DragLinearLayout extends LinearLayout {
             }
             this.totalDragOffset = 0;
             this.targetHeadOffset = 0;
+
             this.settleAnimation = null;
 
             this.detecting = true;
@@ -134,6 +141,18 @@ public class DragLinearLayout extends LinearLayout {
         public void onDragStart() {
             view.setVisibility(View.INVISIBLE);
             this.dragging = true;
+
+            orthogonalDragStartAnimation = ValueAnimator.ofFloat(0, orthogonalDragOffsetScaled)
+                    .setDuration(NOMINAL_SWITCH_DURATION);
+            orthogonalDragStartAnimation.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
+                @Override
+                public void onAnimationUpdate(ValueAnimator animation) {
+                    draggedItem.setOrthogonalOffset(((Float) animation.getAnimatedValue()).intValue());
+                    invalidate();
+                }
+            });
+
+            orthogonalDragStartAnimation.start();
         }
 
         public void setTotalOffset(int offset) {
@@ -172,6 +191,10 @@ public class DragLinearLayout extends LinearLayout {
             targetHeadOffset = 0;
             if (null != settleAnimation) settleAnimation.end();
             settleAnimation = null;
+        }
+
+        public void setOrthogonalOffset(int orthogonalOffset) {
+            this.orthogonalOffset = orthogonalOffset;
         }
     }
 
@@ -240,6 +263,7 @@ public class DragLinearLayout extends LinearLayout {
             a.recycle();
         }
 
+        orthogonalDragOffsetScaled = (int) (DEFAULT_ORTHOGONAL_DRAG_OFFSET * resources.getDisplayMetrics().density + 0.5f);
         nominalDistanceScaled = (int) (NOMINAL_DISTANCE * resources.getDisplayMetrics().density + 0.5f);
     }
 
@@ -355,6 +379,14 @@ public class DragLinearLayout extends LinearLayout {
     }
 
     /**
+     * Sets the orthogonal offset that a view will be moved while being dragged
+     */
+    @SuppressWarnings("UnusedDeclaration")
+    public void setOrthogonalDragOffset(int orthogonalDragOffset) {
+        this.orthogonalDragOffsetScaled = (int) (orthogonalDragOffset * getResources().getDisplayMetrics().density + 0.5f);
+    }
+
+    /**
      * A linear relationship b/w distance and duration, bounded.
      */
     private long getTranslateAnimationDuration(float distance) {
@@ -387,6 +419,7 @@ public class DragLinearLayout extends LinearLayout {
      * Animates the dragged item to its final resting position.
      */
     private void onDragStop() {
+        // settle in drag direction
         draggedItem.settleAnimation = ValueAnimator.ofFloat(draggedItem.totalDragOffset,
                 draggedItem.totalDragOffset - draggedItem.targetHeadOffset)
                 .setDuration(getTranslateAnimationDuration(draggedItem.targetHeadOffset));
@@ -423,6 +456,18 @@ public class DragLinearLayout extends LinearLayout {
             }
         });
         draggedItem.settleAnimation.start();
+
+        // settle orthogonal, using the same duration as drag direction settle duration
+        draggedItem.orthogonalDragSettleAnimation = ValueAnimator.ofFloat(draggedItem.orthogonalOffset, 0).
+                setDuration(getTranslateAnimationDuration(draggedItem.targetHeadOffset));
+        draggedItem.orthogonalDragSettleAnimation.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
+            @Override
+            public void onAnimationUpdate(ValueAnimator animation) {
+                draggedItem.setOrthogonalOffset(((Float) animation.getAnimatedValue()).intValue());
+                invalidate();
+            }
+        });
+        draggedItem.orthogonalDragSettleAnimation.start();
     }
 
     /**
@@ -670,10 +715,10 @@ public class DragLinearLayout extends LinearLayout {
             canvas.save();
             switch (getOrientation()) {
                 case LinearLayout.VERTICAL:
-                    canvas.translate(0, draggedItem.totalDragOffset);
+                    canvas.translate(draggedItem.orthogonalOffset, draggedItem.totalDragOffset);
                     break;
                 case LinearLayout.HORIZONTAL:
-                    canvas.translate(draggedItem.totalDragOffset, 0);
+                    canvas.translate(draggedItem.totalDragOffset, draggedItem.orthogonalOffset);
                     break;
             }
             draggedItem.viewDrawable.draw(canvas);
