@@ -107,7 +107,7 @@ public class DragLinearLayout extends LinearLayout {
         private ValueAnimator orthogonalDragStartAnimation;
         private ValueAnimator orthogonalDragSettleAnimation;
         private ValueAnimator settleAnimation;
-        private int mOrientation;
+        private final int mOrientation;
 
         private boolean detecting;
         private boolean dragging;

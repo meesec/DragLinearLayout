@@ -22,10 +22,10 @@ import com.jmedeisis.draglinearlayout.DragLinearLayout;
 
 public class NoteActivity extends AppCompatActivity {
 
-    DragLinearLayout noteContainer;
-    int firstNoteIndex;
-    int noteCount;
-    ScrollView scrollView;
+    private DragLinearLayout noteContainer;
+    private int firstNoteIndex;
+    private int noteCount;
+    private ScrollView scrollView;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {

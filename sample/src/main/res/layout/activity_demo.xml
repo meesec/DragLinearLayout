@@ -29,7 +29,7 @@
             android:contentDescription="@string/demo_image_content_description" />
 
         <TextView
-            android:text="@string/list_item_4"
+            android:text="@string/list_item"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_weight="1"
