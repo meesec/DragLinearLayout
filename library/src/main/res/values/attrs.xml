@@ -2,7 +2,7 @@
 <resources>
     <declare-styleable name="DragLinearLayout">
         <attr name="scrollSensitiveHeight" format="dimension" />
-        <attr name="scrollSensistiveWidth" format="dimension" />
+        <attr name="scrollSensitiveWidth" format="dimension" />
         <attr name="placeholderView" format="reference" />
     </declare-styleable>
 </resources>

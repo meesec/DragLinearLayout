@@ -255,7 +255,7 @@ public class DragLinearLayout extends LinearLayout {
                             (int) (DEFAULT_SCROLL_SENSITIVE_AREA_HEIGHT_DP * resources.getDisplayMetrics().density + 0.5f));
                     break;
                 case LinearLayout.HORIZONTAL:
-                    scrollSensitiveAreaThickness = a.getDimensionPixelSize(R.styleable.DragLinearLayout_scrollSensistiveWidth,
+                    scrollSensitiveAreaThickness = a.getDimensionPixelSize(R.styleable.DragLinearLayout_scrollSensitiveWidth,
                             (int) (DEFAULT_SCROLL_SENSITIVE_AREA_WIDTH_DP * resources.getDisplayMetrics().density + 0.5f));
                     break;
             }
