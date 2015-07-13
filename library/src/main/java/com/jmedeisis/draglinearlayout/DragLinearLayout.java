@@ -2,6 +2,7 @@ package com.jmedeisis.draglinearlayout;
 
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
+import android.animation.LayoutTransition;
 import android.animation.ObjectAnimator;
 import android.animation.ValueAnimator;
 import android.content.Context;
@@ -463,12 +464,20 @@ public class DragLinearLayout extends LinearLayout {
                         Log.d(LOG_TAG, "Updating settle animation");
                         draggedItem.getSettleAnimation().removeAllListeners();
                         draggedItem.getSettleAnimation().cancel();
-                        draggedItem.onDragStop(DragLinearLayout.this);
+                        stopDrag();
                     }
                     return true;
                 }
             });
         }
+    }
+
+    public void stopDrag() {
+        // restore layout transition
+        if (layoutTransition != null && getLayoutTransition() == null) {
+            setLayoutTransition(layoutTransition);
+        }
+        draggedItem.onDragStop(DragLinearLayout.this);
     }
 
     private int previousDraggablePosition(int position) {
@@ -682,7 +691,7 @@ public class DragLinearLayout extends LinearLayout {
                 onTouchEnd();
 
                 if (draggedItem.isDragging()) {
-                    draggedItem.onDragStop(DragLinearLayout.this);
+                    stopDrag();
                 } else if (draggedItem.isDetecting()) {
                     draggedItem.stopDetecting();
                 }
