@@ -7,10 +7,7 @@ import android.animation.ValueAnimator;
 import android.content.Context;
 import android.content.res.Resources;
 import android.content.res.TypedArray;
-import android.graphics.Bitmap;
 import android.graphics.Canvas;
-import android.graphics.Rect;
-import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.support.annotation.NonNull;
 import android.support.v4.content.ContextCompat;
@@ -44,6 +41,7 @@ public class DragLinearLayout extends LinearLayout {
     private static final float NOMINAL_DISTANCE = 20;
     private static final int DEFAULT_ORTHOGONAL_DRAG_OFFSET = 0;
     private final float nominalDistanceScaled;
+
 
     private int orthogonalDragOffsetScaled;
 
@@ -86,120 +84,7 @@ public class DragLinearLayout extends LinearLayout {
     }
 
     /**
-     * Holds state information about the currently dragged item.
-     * <p/>
-     * Rough lifecycle:
-     * <li>#startDetectingOnPossibleDrag - #detecting == true</li>
-     * <li>     if drag is recognised, #onDragStart - #dragging == true</li>
-     * <li>     if drag ends, #onDragStop - #dragging == false, #settling == true</li>
-     * <li>if gesture ends without drag, or settling finishes, #stopDetecting - #detecting == false</li>
-     */
-    private class DragItem {
-        private View view;
-        private int startVisibility;
-        private BitmapDrawable viewDrawable;
-        private int position;
-        private int startHead;
-        private int thickness;
-        private int totalDragOffset;
-        private int targetHeadOffset;
-        private int orthogonalOffset;
-        private ValueAnimator orthogonalDragStartAnimation;
-        private ValueAnimator orthogonalDragSettleAnimation;
-        private ValueAnimator settleAnimation;
-        private final int mOrientation;
-
-        private boolean detecting;
-        private boolean dragging;
-
-        public DragItem(int orientation) {
-            this.mOrientation = orientation;
-            stopDetecting();
-        }
-
-        public void startDetectingOnPossibleDrag(final View view, final int position) {
-            this.view = view;
-            this.startVisibility = view.getVisibility();
-            this.viewDrawable = getDragDrawable(view);
-            this.position = position;
-
-            if (mOrientation == LinearLayout.VERTICAL) {
-                this.startHead = view.getTop();
-                this.thickness = view.getHeight();
-            } else if (mOrientation == LinearLayout.HORIZONTAL) {
-                this.startHead = view.getLeft();
-                this.thickness = view.getWidth();
-            }
-            this.totalDragOffset = 0;
-            this.targetHeadOffset = 0;
-
-            this.settleAnimation = null;
-
-            this.detecting = true;
-        }
-
-        public void onDragStart() {
-            view.setVisibility(View.INVISIBLE);
-            this.dragging = true;
-
-            orthogonalDragStartAnimation = ValueAnimator.ofFloat(0, orthogonalDragOffsetScaled)
-                    .setDuration(NOMINAL_SWITCH_DURATION);
-            orthogonalDragStartAnimation.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
-                @Override
-                public void onAnimationUpdate(ValueAnimator animation) {
-                    draggedItem.setOrthogonalOffset(((Float) animation.getAnimatedValue()).intValue());
-                    invalidate();
-                }
-            });
-
-            orthogonalDragStartAnimation.start();
-        }
-
-        public void setTotalOffset(int offset) {
-            totalDragOffset = offset;
-            updateTargetHead();
-        }
-
-        public void updateTargetHead() {
-            switch (mOrientation) {
-                case LinearLayout.VERTICAL:
-                    targetHeadOffset = startHead - view.getTop() + totalDragOffset;
-                    break;
-                case LinearLayout.HORIZONTAL:
-                    targetHeadOffset = startHead - view.getLeft() + totalDragOffset;
-            }
-        }
-
-        public void onDragStop() {
-            this.dragging = false;
-        }
-
-        public boolean settling() {
-            return null != settleAnimation;
-        }
-
-        public void stopDetecting() {
-            this.detecting = false;
-            if (null != view) view.setVisibility(startVisibility);
-            view = null;
-            startVisibility = -1;
-            viewDrawable = null;
-            position = -1;
-            startHead = -1;
-            thickness = -1;
-            totalDragOffset = 0;
-            targetHeadOffset = 0;
-            if (null != settleAnimation) settleAnimation.end();
-            settleAnimation = null;
-        }
-
-        public void setOrthogonalOffset(int orthogonalOffset) {
-            this.orthogonalOffset = orthogonalOffset;
-        }
-    }
-
-    /**
-     * The currently dragged item, if {@link com.jmedeisis.draglinearlayout.DragLinearLayout.DragItem#detecting}.
+     * The currently dragged item, if {@link com.jmedeisis.draglinearlayout.DragItem#detecting}.
      */
     private final DragItem draggedItem;
     private final int slop;
@@ -209,15 +94,9 @@ public class DragLinearLayout extends LinearLayout {
     private int activePointerId = INVALID_POINTER_ID;
 
     /**
-     * The shadow to be drawn above the {@link #draggedItem}.
+     * The shadow to be drawn around the {@link #draggedItem}.
      */
-    // TODO(cmcneil): Generalize this.
-    private final Drawable dragTopShadowDrawable;
-    /**
-     * The shadow to be drawn below the {@link #draggedItem}.
-     */
-    // TODO(cmcneil): Generalize this
-    private final Drawable dragBottomShadowDrawable;
+    private final Drawable dragShadowDrawable;
     private final int dragShadowHeight;
 
     /**
@@ -238,14 +117,19 @@ public class DragLinearLayout extends LinearLayout {
 
         draggableChildren = new SparseArray<>();
 
+        final Resources resources = getResources();
+        dragShadowDrawable = ContextCompat.getDrawable(context, R.drawable.shadow_light);
+        dragShadowHeight = resources.getDimensionPixelSize(R.dimen.downwards_drop_shadow_height);
+        nominalDistanceScaled = (int) (NOMINAL_DISTANCE * resources.getDisplayMetrics().density + 0.5f);
+        orthogonalDragOffsetScaled = (int) (DEFAULT_ORTHOGONAL_DRAG_OFFSET * resources.getDisplayMetrics().density + 0.5f);
+
         draggedItem = new DragItem(getOrientation());
+        draggedItem.setDragShadowDrawable(dragShadowDrawable);
+        draggedItem.setDragShadowHeight(dragShadowHeight);
+        draggedItem.setOrthogonalDragOffsetScaled(orthogonalDragOffsetScaled);
+        draggedItem.setNominalDistanceScaled(nominalDistanceScaled);
         ViewConfiguration vc = ViewConfiguration.get(context);
         slop = vc.getScaledTouchSlop();
-
-        final Resources resources = getResources();
-        dragTopShadowDrawable = ContextCompat.getDrawable(context, R.drawable.ab_solid_shadow_holo_flipped);
-        dragBottomShadowDrawable = ContextCompat.getDrawable(context, R.drawable.ab_solid_shadow_holo);
-        dragShadowHeight = resources.getDimensionPixelSize(R.dimen.downwards_drop_shadow_height);
 
         TypedArray a = context.getTheme().obtainStyledAttributes(attrs, R.styleable.DragLinearLayout, 0, 0);
         try {
@@ -262,9 +146,6 @@ public class DragLinearLayout extends LinearLayout {
         } finally {
             a.recycle();
         }
-
-        orthogonalDragOffsetScaled = (int) (DEFAULT_ORTHOGONAL_DRAG_OFFSET * resources.getDisplayMetrics().density + 0.5f);
-        nominalDistanceScaled = (int) (NOMINAL_DISTANCE * resources.getDisplayMetrics().density + 0.5f);
     }
 
     /**
@@ -384,6 +265,7 @@ public class DragLinearLayout extends LinearLayout {
     @SuppressWarnings("UnusedDeclaration")
     public void setOrthogonalDragOffset(int orthogonalDragOffset) {
         this.orthogonalDragOffsetScaled = (int) (orthogonalDragOffset * getResources().getDisplayMetrics().density + 0.5f);
+        draggedItem.setOrthogonalDragOffsetScaled(orthogonalDragOffsetScaled);
     }
 
     /**
@@ -396,10 +278,10 @@ public class DragLinearLayout extends LinearLayout {
 
     /**
      * Initiates a new {@link #draggedItem} unless the current one is still
-     * {@link com.jmedeisis.draglinearlayout.DragLinearLayout.DragItem#detecting}.
+     * {@link com.jmedeisis.draglinearlayout.DragItem#detecting}.
      */
     private void startDetectingDrag(View child) {
-        if (draggedItem.detecting)
+        if (draggedItem.isDetecting())
             return; // existing drag in process, only one at a time is allowed
 
         final int position = indexOfChild(child);
@@ -411,63 +293,8 @@ public class DragLinearLayout extends LinearLayout {
     }
 
     private void startDrag() {
-        draggedItem.onDragStart();
+        draggedItem.onDragStart(DragLinearLayout.this);
         requestDisallowInterceptTouchEvent(true);
-    }
-
-    /**
-     * Animates the dragged item to its final resting position.
-     */
-    private void onDragStop() {
-        // settle in drag direction
-        draggedItem.settleAnimation = ValueAnimator.ofFloat(draggedItem.totalDragOffset,
-                draggedItem.totalDragOffset - draggedItem.targetHeadOffset)
-                .setDuration(getTranslateAnimationDuration(draggedItem.targetHeadOffset));
-        draggedItem.settleAnimation.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
-            @Override
-            public void onAnimationUpdate(ValueAnimator animation) {
-                if (!draggedItem.detecting) return; // already stopped
-
-                draggedItem.setTotalOffset(((Float) animation.getAnimatedValue()).intValue());
-
-                final int shadowAlpha = (int) ((1 - animation.getAnimatedFraction()) * 255);
-                if (null != dragTopShadowDrawable) dragTopShadowDrawable.setAlpha(shadowAlpha);
-                dragBottomShadowDrawable.setAlpha(shadowAlpha);
-                invalidate();
-            }
-        });
-        draggedItem.settleAnimation.addListener(new AnimatorListenerAdapter() {
-            @Override
-            public void onAnimationStart(Animator animation) {
-                draggedItem.onDragStop();
-            }
-
-            @Override
-            public void onAnimationEnd(Animator animation) {
-                if (!draggedItem.detecting) {
-                    return; // already stopped
-                }
-
-                draggedItem.settleAnimation = null;
-                draggedItem.stopDetecting();
-
-                if (null != dragTopShadowDrawable) dragTopShadowDrawable.setAlpha(255);
-                dragBottomShadowDrawable.setAlpha(255);
-            }
-        });
-        draggedItem.settleAnimation.start();
-
-        // settle orthogonal, using the same duration as drag direction settle duration
-        draggedItem.orthogonalDragSettleAnimation = ValueAnimator.ofFloat(draggedItem.orthogonalOffset, 0).
-                setDuration(getTranslateAnimationDuration(draggedItem.targetHeadOffset));
-        draggedItem.orthogonalDragSettleAnimation.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
-            @Override
-            public void onAnimationUpdate(ValueAnimator animation) {
-                draggedItem.setOrthogonalOffset(((Float) animation.getAnimatedValue()).intValue());
-                invalidate();
-            }
-        });
-        draggedItem.orthogonalDragSettleAnimation.start();
     }
 
     /**
@@ -478,12 +305,12 @@ public class DragLinearLayout extends LinearLayout {
         draggedItem.setTotalOffset(offset);
         invalidate();
 
-        int currentHead = draggedItem.startHead + draggedItem.totalDragOffset;
+        int currentHead = draggedItem.getStartHead() + draggedItem.getTotalDragOffset();
 
         handleContainerScroll(currentHead);
 
-        int belowPosition = nextDraggablePosition(draggedItem.position);
-        int abovePosition = previousDraggablePosition(draggedItem.position);
+        int belowPosition = nextDraggablePosition(draggedItem.getPosition());
+        int abovePosition = previousDraggablePosition(draggedItem.getPosition());
 
         View belowView = getChildAt(belowPosition);
         View aboveView = getChildAt(abovePosition);
@@ -519,7 +346,7 @@ public class DragLinearLayout extends LinearLayout {
         }
 
         final boolean isBelow = (belowView != null) &&
-                (currentHead + draggedItem.thickness > belowViewHead + belowViewThickness / 2);
+                (currentHead + draggedItem.getThickness() > belowViewHead + belowViewThickness / 2);
         final boolean isAbove = (aboveView != null) &&
                 (currentHead < aboveViewHead + aboveViewThickness / 2);
 
@@ -527,7 +354,7 @@ public class DragLinearLayout extends LinearLayout {
             final View switchView = isBelow ? belowView : aboveView;
 
             // swap elements
-            final int originalPosition = draggedItem.position;
+            final int originalPosition = draggedItem.getPosition();
             final int switchPosition = isBelow ? belowPosition : abovePosition;
 
             draggableChildren.get(switchPosition).cancelExistingAnimation();
@@ -545,7 +372,7 @@ public class DragLinearLayout extends LinearLayout {
             final float switchViewStartPos = startPos;
 
             if (null != swapListener) {
-                swapListener.onSwap(draggedItem.view, draggedItem.position, switchView, switchPosition);
+                swapListener.onSwap(draggedItem.getView(), draggedItem.getPosition(), switchView, switchPosition);
             }
 
             if (isBelow) {
@@ -553,15 +380,15 @@ public class DragLinearLayout extends LinearLayout {
                 removeViewAt(switchPosition - 1);
 
                 addView(belowView, originalPosition);
-                addView(draggedItem.view, switchPosition);
+                addView(draggedItem.getView(), switchPosition);
             } else {
                 removeViewAt(switchPosition);
                 removeViewAt(originalPosition - 1);
 
-                addView(draggedItem.view, switchPosition);
+                addView(draggedItem.getView(), switchPosition);
                 addView(aboveView, originalPosition);
             }
-            draggedItem.position = switchPosition;
+            draggedItem.setPosition(switchPosition);
 
             final ViewTreeObserver switchViewObserver = switchView.getViewTreeObserver();
             switchViewObserver.addOnPreDrawListener(new OnPreDrawListener() {
@@ -601,7 +428,7 @@ public class DragLinearLayout extends LinearLayout {
                 }
             });
 
-            final ViewTreeObserver observer = draggedItem.view.getViewTreeObserver();
+            final ViewTreeObserver observer = draggedItem.getView().getViewTreeObserver();
             observer.addOnPreDrawListener(new OnPreDrawListener() {
                 @Override
                 public boolean onPreDraw() {
@@ -614,9 +441,9 @@ public class DragLinearLayout extends LinearLayout {
                     // we may need to update an ongoing settle animation
                     if (draggedItem.settling()) {
                         Log.d(LOG_TAG, "Updating settle animation");
-                        draggedItem.settleAnimation.removeAllListeners();
-                        draggedItem.settleAnimation.cancel();
-                        onDragStop();
+                        draggedItem.getSettleAnimation().removeAllListeners();
+                        draggedItem.getSettleAnimation().cancel();
+                        draggedItem.onDragStop(DragLinearLayout.this);
                     }
                     return true;
                 }
@@ -677,8 +504,8 @@ public class DragLinearLayout extends LinearLayout {
                     dragUpdater = new Runnable() {
                         @Override
                         public void run() {
-                            if (draggedItem.dragging && startScrollY != containerScrollView.getScrollY()) {
-                                onDrag(draggedItem.totalDragOffset + delta);
+                            if (draggedItem.isDragging() && startScrollY != containerScrollView.getScrollY()) {
+                                onDrag(draggedItem.getTotalDragOffset() + delta);
                             }
                         }
                     };
@@ -688,8 +515,8 @@ public class DragLinearLayout extends LinearLayout {
                     dragUpdater = new Runnable() {
                         @Override
                         public void run() {
-                            if (draggedItem.dragging && startScrollX != containerScrollView.getScrollX()) {
-                                onDrag(draggedItem.totalDragOffset + delta);
+                            if (draggedItem.isDragging() && startScrollX != containerScrollView.getScrollX()) {
+                                onDrag(draggedItem.getTotalDragOffset() + delta);
                             }
                         }
                     };
@@ -710,34 +537,7 @@ public class DragLinearLayout extends LinearLayout {
     @Override
     protected void dispatchDraw(@NonNull Canvas canvas) {
         super.dispatchDraw(canvas);
-
-        if (draggedItem.detecting && (draggedItem.dragging || draggedItem.settling())) {
-            canvas.save();
-            switch (getOrientation()) {
-                case LinearLayout.VERTICAL:
-                    canvas.translate(draggedItem.orthogonalOffset, draggedItem.totalDragOffset);
-                    break;
-                case LinearLayout.HORIZONTAL:
-                    canvas.translate(draggedItem.totalDragOffset, draggedItem.orthogonalOffset);
-                    break;
-            }
-            draggedItem.viewDrawable.draw(canvas);
-
-            final int left = draggedItem.viewDrawable.getBounds().left;
-            final int right = draggedItem.viewDrawable.getBounds().right;
-            final int top = draggedItem.viewDrawable.getBounds().top;
-            final int bottom = draggedItem.viewDrawable.getBounds().bottom;
-
-            dragBottomShadowDrawable.setBounds(left, bottom, right, bottom + dragShadowHeight);
-            dragBottomShadowDrawable.draw(canvas);
-
-            if (null != dragTopShadowDrawable) {
-                dragTopShadowDrawable.setBounds(left, top - dragShadowHeight, right, top);
-                dragTopShadowDrawable.draw(canvas);
-            }
-
-            canvas.restore();
-        }
+        draggedItem.draw(canvas);
     }
 
     /*
@@ -770,7 +570,7 @@ public class DragLinearLayout extends LinearLayout {
     public boolean onInterceptTouchEvent(MotionEvent event) {
         switch (MotionEventCompat.getActionMasked(event)) {
             case MotionEvent.ACTION_DOWN: {
-                if (draggedItem.detecting) return false; // an existing item is (likely) settling
+                if (draggedItem.isDetecting()) return false; // an existing item is (likely) settling
                 switch (getOrientation()) {
                     case LinearLayout.VERTICAL:
                         downPos = (int) MotionEventCompat.getY(event, 0);
@@ -782,7 +582,7 @@ public class DragLinearLayout extends LinearLayout {
                 break;
             }
             case MotionEvent.ACTION_MOVE: {
-                if (!draggedItem.detecting) return false;
+                if (!draggedItem.isDetecting()) return false;
                 if (INVALID_POINTER_ID == activePointerId) break;
                 final int pointerIndex = event.findPointerIndex(activePointerId);
                 boolean move = false;
@@ -815,7 +615,7 @@ public class DragLinearLayout extends LinearLayout {
             case MotionEvent.ACTION_UP: {
                 onTouchEnd();
 
-                if (draggedItem.detecting) draggedItem.stopDetecting();
+                if (draggedItem.isDetecting()) draggedItem.stopDetecting();
                 break;
             }
         }
@@ -827,12 +627,12 @@ public class DragLinearLayout extends LinearLayout {
     public boolean onTouchEvent(@NonNull MotionEvent event) {
         switch (MotionEventCompat.getActionMasked(event)) {
             case MotionEvent.ACTION_DOWN: {
-                if (!draggedItem.detecting || draggedItem.settling()) return false;
+                if (!draggedItem.isDetecting() || draggedItem.settling()) return false;
                 startDrag();
                 return true;
             }
             case MotionEvent.ACTION_MOVE: {
-                if (!draggedItem.dragging) break;
+                if (!draggedItem.isDragging()) break;
                 if (INVALID_POINTER_ID == activePointerId) break;
 
                 int pointerIndex = event.findPointerIndex(activePointerId);
@@ -861,9 +661,9 @@ public class DragLinearLayout extends LinearLayout {
             case MotionEvent.ACTION_UP: {
                 onTouchEnd();
 
-                if (draggedItem.dragging) {
-                    onDragStop();
-                } else if (draggedItem.detecting) {
+                if (draggedItem.isDragging()) {
+                    draggedItem.onDragStop(DragLinearLayout.this);
+                } else if (draggedItem.isDetecting()) {
                     draggedItem.stopDetecting();
                 }
                 return true;
@@ -891,28 +691,5 @@ public class DragLinearLayout extends LinearLayout {
             }
             return false;
         }
-    }
-
-    private BitmapDrawable getDragDrawable(View view) {
-        int top = view.getTop();
-        int left = view.getLeft();
-
-        Bitmap bitmap = getBitmapFromView(view);
-
-        BitmapDrawable drawable = new BitmapDrawable(getResources(), bitmap);
-
-        drawable.setBounds(new Rect(left, top, left + view.getWidth(), top + view.getHeight()));
-
-        return drawable;
-    }
-
-    /**
-     * @return a bitmap showing a screenshot of the view passed in.
-     */
-    private static Bitmap getBitmapFromView(View view) {
-        Bitmap bitmap = Bitmap.createBitmap(view.getWidth(), view.getHeight(), Bitmap.Config.ARGB_8888);
-        Canvas canvas = new Canvas(bitmap);
-        view.draw(canvas);
-        return bitmap;
     }
 }
