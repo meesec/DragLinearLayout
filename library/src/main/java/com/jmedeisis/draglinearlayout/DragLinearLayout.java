@@ -2,6 +2,7 @@ package com.jmedeisis.draglinearlayout;
 
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
+import android.animation.LayoutTransition;
 import android.animation.ObjectAnimator;
 import android.animation.ValueAnimator;
 import android.content.Context;
@@ -60,6 +61,8 @@ public class DragLinearLayout extends LinearLayout {
     }
 
     private OnViewSwapListener swapListener;
+
+    private LayoutTransition layoutTransition;
 
     /**
      * Mapping from child index to drag-related info container.
@@ -180,6 +183,11 @@ public class DragLinearLayout extends LinearLayout {
      * Makes the child a candidate for dragging. Must be an existing child of this layout.
      */
     public void setViewDraggable(View child, View dragHandle) {
+        if (null == child || null == dragHandle) {
+            throw new IllegalArgumentException(
+                "Draggable children and their drag handles must not be null.");
+        }
+        
         if (this == child.getParent()) {
             dragHandle.setOnTouchListener(new DragHandleOnTouchListener(child));
             draggableChildren.put(indexOfChild(child), new DraggableChild());
@@ -212,6 +220,12 @@ public class DragLinearLayout extends LinearLayout {
                 }
             }
         }
+    }
+
+    @Override
+    public void removeAllViews() {
+        super.removeAllViews();
+        draggableChildren.clear();
     }
 
     /**
@@ -293,6 +307,13 @@ public class DragLinearLayout extends LinearLayout {
     }
 
     private void startDrag() {
+        // remove layout transition, it conflicts with drag animation
+        // we will restore it after drag animation end, see onDragStop()
+        layoutTransition = getLayoutTransition();
+        if (layoutTransition != null) {
+            setLayoutTransition(null);
+        }
+
         draggedItem.onDragStart(DragLinearLayout.this);
         requestDisallowInterceptTouchEvent(true);
     }
@@ -443,12 +464,20 @@ public class DragLinearLayout extends LinearLayout {
                         Log.d(LOG_TAG, "Updating settle animation");
                         draggedItem.getSettleAnimation().removeAllListeners();
                         draggedItem.getSettleAnimation().cancel();
-                        draggedItem.onDragStop(DragLinearLayout.this);
+                        stopDrag();
                     }
                     return true;
                 }
             });
         }
+    }
+
+    public void stopDrag() {
+        // restore layout transition
+        if (layoutTransition != null && getLayoutTransition() == null) {
+            setLayoutTransition(layoutTransition);
+        }
+        draggedItem.onDragStop(DragLinearLayout.this);
     }
 
     private int previousDraggablePosition(int position) {
@@ -662,7 +691,7 @@ public class DragLinearLayout extends LinearLayout {
                 onTouchEnd();
 
                 if (draggedItem.isDragging()) {
-                    draggedItem.onDragStop(DragLinearLayout.this);
+                    stopDrag();
                 } else if (draggedItem.isDetecting()) {
                     draggedItem.stopDetecting();
                 }

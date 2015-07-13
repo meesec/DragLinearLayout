@@ -86,6 +86,8 @@ public class DragItem {
         });
 
         orthogonalDragStartAnimation.start();
+
+
     }
 
     public void setTotalOffset(int offset) {
@@ -152,6 +154,8 @@ public class DragItem {
             }
         });
         orthogonalDragSettleAnimation.start();
+
+
     }
 
     public boolean settling() {
