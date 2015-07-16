@@ -55,7 +55,7 @@ public class DragItem {
     public void startDetectingOnPossibleDrag(final View view, final int position) {
         this.view = view;
         this.startVisibility = view.getVisibility();
-        this.viewDrawable = getDragDrawable(view);
+        updateViewDrawable();
         this.position = position;
 
         if (mOrientation == LinearLayout.VERTICAL) {
@@ -69,6 +69,10 @@ public class DragItem {
         this.targetHeadOffset = 0;
         this.settleAnimation = null;
         this.detecting = true;
+    }
+
+    public void updateViewDrawable() {
+        viewDrawable = getDragDrawable(view);
     }
 
     public void onDragStart(final View container) {

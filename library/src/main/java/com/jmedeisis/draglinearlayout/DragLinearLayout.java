@@ -10,6 +10,8 @@ import android.content.res.Resources;
 import android.content.res.TypedArray;
 import android.graphics.Canvas;
 import android.graphics.drawable.Drawable;
+import android.os.Handler;
+import android.os.Vibrator;
 import android.support.annotation.NonNull;
 import android.support.v4.content.ContextCompat;
 import android.support.v4.view.MotionEventCompat;
@@ -41,6 +43,7 @@ public class DragLinearLayout extends LinearLayout {
     private static final long MAX_SWITCH_DURATION = NOMINAL_SWITCH_DURATION * 2;
     private static final float NOMINAL_DISTANCE = 20;
     private static final int DEFAULT_ORTHOGONAL_DRAG_OFFSET = 0;
+    public static final int LONG_CLICK_MIN_DURATION = 200;
     private final float nominalDistanceScaled;
 
 
@@ -61,6 +64,24 @@ public class DragLinearLayout extends LinearLayout {
     }
 
     private OnViewSwapListener swapListener;
+
+    /**
+     * Use with {@link com.jmedeisis.draglinearlayout.DragLinearLayout#setOnViewDragListener(com.jmedeisis.draglinearlayout.DragLinearLayout.OnViewDragListener)}
+     * to listen for drag events.
+     */
+    public interface OnViewDragListener {
+        /**
+         * Invoked right before the view is animated to its dragging state
+         */
+        void onStartDrag(View view);
+
+        /**
+         * Invoked right before the view is animated to its regular state
+         */
+        void onStopDrag(View view);
+    }
+
+    private OnViewDragListener dragListener;
 
     private LayoutTransition layoutTransition;
 
@@ -274,6 +295,13 @@ public class DragLinearLayout extends LinearLayout {
     }
 
     /**
+     * See {@link com.jmedeisis.draglinearlayout.DragLinearLayout.OnViewSwapListener}.
+     */
+    public void setOnViewDragListener(OnViewDragListener dragListener) {
+        this.dragListener = dragListener;
+    }
+
+    /**
      * Sets the orthogonal offset that a view will be moved while being dragged
      */
     @SuppressWarnings("UnusedDeclaration")
@@ -301,7 +329,9 @@ public class DragLinearLayout extends LinearLayout {
         final int position = indexOfChild(child);
 
         // complete any existing animations, both for the newly selected child and the previous dragged one
-        draggableChildren.get(position).endExistingAnimation();
+        if (draggableChildren.get(position) instanceof DraggableChild) {
+            draggableChildren.get(position).endExistingAnimation();
+        }
 
         draggedItem.startDetectingOnPossibleDrag(child, position);
     }
@@ -314,6 +344,10 @@ public class DragLinearLayout extends LinearLayout {
             setLayoutTransition(null);
         }
 
+        if (dragListener != null) {
+            dragListener.onStartDrag(draggedItem.getView());
+            draggedItem.updateViewDrawable();
+        }
         draggedItem.onDragStart(DragLinearLayout.this);
         requestDisallowInterceptTouchEvent(true);
     }
@@ -477,6 +511,9 @@ public class DragLinearLayout extends LinearLayout {
         if (layoutTransition != null && getLayoutTransition() == null) {
             setLayoutTransition(layoutTransition);
         }
+        if (dragListener != null) {
+            dragListener.onStopDrag(draggedItem.getView());
+        }
         draggedItem.onDragStop(DragLinearLayout.this);
     }
 
@@ -597,6 +634,7 @@ public class DragLinearLayout extends LinearLayout {
 
     @Override
     public boolean onInterceptTouchEvent(MotionEvent event) {
+        Log.d(LOG_TAG, "onInterceptTouchEvent: " + event.getAction());
         switch (MotionEventCompat.getActionMasked(event)) {
             case MotionEvent.ACTION_DOWN: {
                 if (draggedItem.isDetecting()) return false; // an existing item is (likely) settling
@@ -627,11 +665,17 @@ public class DragLinearLayout extends LinearLayout {
                         move = Math.abs(dx) > slop;
                 }
 
-                if (move) {
-                    startDrag();
-                    return true;
+                if (!move) {
+                    Log.d(LOG_TAG, "posting startdrag task from move");
+                    handler.postDelayed(startDragOnLongPressRunnable, LONG_CLICK_MIN_DURATION);
+                    potentialClick = true;
+                } else {
+                    Log.d(LOG_TAG, "removing callback from move");
+                    handler.removeCallbacks(startDragOnLongPressRunnable);
+                    potentialClick = false;
                 }
-                return false;
+
+                return true;
             }
             case MotionEvent.ACTION_POINTER_UP: {
                 final int pointerIndex = MotionEventCompat.getActionIndex(event);
@@ -649,15 +693,32 @@ public class DragLinearLayout extends LinearLayout {
             }
         }
 
+        this.onTouchEvent(event);
         return false;
     }
 
+    final Handler handler = new Handler();
+    private boolean potentialClick;
+    final Runnable startDragOnLongPressRunnable = new Runnable() {
+        public void run() {
+            handler.removeCallbacks(startDragOnLongPressRunnable);
+            potentialClick = false;
+            startDrag();
+
+            Vibrator v = (Vibrator) getContext().getSystemService(Context.VIBRATOR_SERVICE);
+            v.vibrate(100);
+        }
+    };
+
     @Override
     public boolean onTouchEvent(@NonNull MotionEvent event) {
+        Log.d(LOG_TAG, "onTouchEvent: " + event.getAction());
         switch (MotionEventCompat.getActionMasked(event)) {
             case MotionEvent.ACTION_DOWN: {
                 if (!draggedItem.isDetecting() || draggedItem.settling()) return false;
-                startDrag();
+                Log.d(LOG_TAG, "posting startdrag task");
+                handler.postDelayed(startDragOnLongPressRunnable, LONG_CLICK_MIN_DURATION);
+                potentialClick = true;
                 return true;
             }
             case MotionEvent.ACTION_MOVE: {
@@ -665,17 +726,30 @@ public class DragLinearLayout extends LinearLayout {
                 if (INVALID_POINTER_ID == activePointerId) break;
 
                 int pointerIndex = event.findPointerIndex(activePointerId);
+                boolean move = false;
                 int lastEventPos = downPos;
+
                 switch (getOrientation()) {
                     case LinearLayout.VERTICAL:
+                        final float y = MotionEventCompat.getY(event, pointerIndex);
+                        final float dy = y - downPos;
+                        move = Math.abs(dy) > slop;
                         lastEventPos = (int) MotionEventCompat.getY(event, pointerIndex);
                         break;
                     case LinearLayout.HORIZONTAL:
+                        final float x = MotionEventCompat.getX(event, pointerIndex);
+                        final float dx = x - downPos;
+                        move = Math.abs(dx) > slop;
                         lastEventPos = (int) MotionEventCompat.getX(event, pointerIndex);
                         break;
                 }
-                final int delta = lastEventPos - downPos;
 
+                if (move) {
+                    Log.d(LOG_TAG, "removing callback");
+                    handler.removeCallbacks(startDragOnLongPressRunnable);
+                    potentialClick = false;
+                }
+                final int delta = lastEventPos - downPos;
                 onDrag(delta);
                 return true;
             }
@@ -688,6 +762,15 @@ public class DragLinearLayout extends LinearLayout {
             }
             case MotionEvent.ACTION_CANCEL:
             case MotionEvent.ACTION_UP: {
+
+                if (potentialClick && MotionEventCompat.getActionMasked(event) == MotionEvent.ACTION_UP) {
+                    potentialClick = false;
+                    if (draggedItem.getView() != null /*&& TODO draggedItem.getView() implements Clickable */) {
+                        draggedItem.getView().performClick();
+                    }
+                }
+                Log.d(LOG_TAG, "removing callback");
+                handler.removeCallbacks(startDragOnLongPressRunnable);
                 onTouchEnd();
 
                 if (draggedItem.isDragging()) {
@@ -716,6 +799,7 @@ public class DragLinearLayout extends LinearLayout {
         @Override
         public boolean onTouch(View v, MotionEvent event) {
             if (MotionEvent.ACTION_DOWN == MotionEventCompat.getActionMasked(event)) {
+                Log.d(LOG_TAG, "startDetectingDrag in DragHandleListener");
                 startDetectingDrag(view);
             }
             return false;
