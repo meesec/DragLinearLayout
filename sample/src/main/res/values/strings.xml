@@ -3,7 +3,7 @@
 
     <string name="app_name">DragLinearLayout Demo</string>
     <string name="list_title">Simple linear layout</string>
-    <string name="list_item_1">Drag me! Drop me!</string>
+    <string name="list_item_1">Drag me! Drop me! I have a margin.</string>
     <string name="list_item_2">Swap with me! Swap with me!</string>
     <string name="list_item_3">I\'m quite sensitive\nabout my height.</string>
     <string name="list_item_4">I heard that one of us is a Button!</string>

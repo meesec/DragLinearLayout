@@ -176,13 +176,9 @@ public class DragLinearLayout extends LinearLayout {
     private int activePointerId = INVALID_POINTER_ID;
 
     /**
-     * The shadow to be drawn above the {@link #draggedItem}.
+     * The shadow to be drawn behind the {@link #draggedItem}.
      */
-    private final Drawable dragTopShadowDrawable;
-    /**
-     * The shadow to be drawn below the {@link #draggedItem}.
-     */
-    private final Drawable dragBottomShadowDrawable;
+    private final Drawable dragShadowDrawable;
     private final int dragShadowHeight;
 
     /**
@@ -209,8 +205,7 @@ public class DragLinearLayout extends LinearLayout {
         slop = vc.getScaledTouchSlop();
 
         final Resources resources = getResources();
-        dragTopShadowDrawable = ContextCompat.getDrawable(context, R.drawable.ab_solid_shadow_holo_flipped);
-        dragBottomShadowDrawable = ContextCompat.getDrawable(context, R.drawable.ab_solid_shadow_holo);
+        dragShadowDrawable = ContextCompat.getDrawable(context, R.drawable.shadow_light);
         dragShadowHeight = resources.getDimensionPixelSize(R.dimen.downwards_drop_shadow_height);
 
         TypedArray a = context.getTheme().obtainStyledAttributes(attrs, R.styleable.DragLinearLayout, 0, 0);
@@ -394,8 +389,7 @@ public class DragLinearLayout extends LinearLayout {
                 draggedItem.setTotalOffset(((Float) animation.getAnimatedValue()).intValue());
 
                 final int shadowAlpha = (int) ((1 - animation.getAnimatedFraction()) * 255);
-                if (null != dragTopShadowDrawable) dragTopShadowDrawable.setAlpha(shadowAlpha);
-                dragBottomShadowDrawable.setAlpha(shadowAlpha);
+                if (null != dragShadowDrawable) dragShadowDrawable.setAlpha(shadowAlpha);
                 invalidate();
             }
         });
@@ -414,8 +408,7 @@ public class DragLinearLayout extends LinearLayout {
                 draggedItem.settleAnimation = null;
                 draggedItem.stopDetecting();
 
-                if (null != dragTopShadowDrawable) dragTopShadowDrawable.setAlpha(255);
-                dragBottomShadowDrawable.setAlpha(255);
+                if (null != dragShadowDrawable) dragShadowDrawable.setAlpha(255);
 
                 // restore layout transition
                 if (layoutTransition != null && getLayoutTransition() == null) {
@@ -586,21 +579,15 @@ public class DragLinearLayout extends LinearLayout {
         if (draggedItem.detecting && (draggedItem.dragging || draggedItem.settling())) {
             canvas.save();
             canvas.translate(0, draggedItem.totalDragOffset);
-            draggedItem.viewDrawable.draw(canvas);
 
             final int left = draggedItem.viewDrawable.getBounds().left;
             final int right = draggedItem.viewDrawable.getBounds().right;
             final int top = draggedItem.viewDrawable.getBounds().top;
             final int bottom = draggedItem.viewDrawable.getBounds().bottom;
+            dragShadowDrawable.setBounds(left - dragShadowHeight, top - dragShadowHeight, right + dragShadowHeight, bottom + dragShadowHeight);
+            dragShadowDrawable.draw(canvas);
 
-            dragBottomShadowDrawable.setBounds(left, bottom, right, bottom + dragShadowHeight);
-            dragBottomShadowDrawable.draw(canvas);
-
-            if (null != dragTopShadowDrawable) {
-                dragTopShadowDrawable.setBounds(left, top - dragShadowHeight, right, top);
-                dragTopShadowDrawable.draw(canvas);
-            }
-
+            draggedItem.viewDrawable.draw(canvas);
             canvas.restore();
         }
     }
