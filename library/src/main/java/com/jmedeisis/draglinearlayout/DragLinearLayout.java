@@ -179,7 +179,7 @@ public class DragLinearLayout extends LinearLayout {
      * The shadow to be drawn behind the {@link #draggedItem}.
      */
     private final Drawable dragShadowDrawable;
-    private final int dragShadowHeight;
+    private final int dragShadowMargin;
 
     /**
      * See {@link #setContainerScrollView(android.widget.ScrollView)}.
@@ -206,7 +206,7 @@ public class DragLinearLayout extends LinearLayout {
 
         final Resources resources = getResources();
         dragShadowDrawable = ContextCompat.getDrawable(context, R.drawable.shadow_light);
-        dragShadowHeight = resources.getDimensionPixelSize(R.dimen.downwards_drop_shadow_height);
+        dragShadowMargin = resources.getDimensionPixelSize(R.dimen.drop_shadow_margin);
 
         TypedArray a = context.getTheme().obtainStyledAttributes(attrs, R.styleable.DragLinearLayout, 0, 0);
         try {
@@ -584,7 +584,8 @@ public class DragLinearLayout extends LinearLayout {
             final int right = draggedItem.viewDrawable.getBounds().right;
             final int top = draggedItem.viewDrawable.getBounds().top;
             final int bottom = draggedItem.viewDrawable.getBounds().bottom;
-            dragShadowDrawable.setBounds(left - dragShadowHeight, top - dragShadowHeight, right + dragShadowHeight, bottom + dragShadowHeight);
+            dragShadowDrawable.setBounds(left - dragShadowMargin, top - dragShadowMargin, right + dragShadowMargin, bottom + dragShadowMargin);
+            dragShadowDrawable.setAlpha(75);
             dragShadowDrawable.draw(canvas);
 
             draggedItem.viewDrawable.draw(canvas);
